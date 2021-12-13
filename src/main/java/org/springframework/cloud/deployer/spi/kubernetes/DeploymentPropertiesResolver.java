@@ -69,6 +69,7 @@ import org.springframework.util.StringUtils;
  *
  * @author Chris Schaefer
  * @author Ilayaperumal Gopinathan
+ * @author Chris Bono
  */
 
 class DeploymentPropertiesResolver {
@@ -412,19 +413,25 @@ class DeploymentPropertiesResolver {
 				this.propertyPrefix + ".podSecurityContext", "podSecurityContext");
 
 		if (deployerProperties.getPodSecurityContext() != null) {
-			podSecurityContext = new PodSecurityContextBuilder()
-					.withRunAsUser(deployerProperties.getPodSecurityContext().getRunAsUser())
-					.withFsGroup(deployerProperties.getPodSecurityContext().getFsGroup())
-					.withSupplementalGroups(deployerProperties.getPodSecurityContext().getSupplementalGroups())
-					.build();
+			podSecurityContext = buildPodSecurityContext(deployerProperties);
+
 		} else if (this.properties.getPodSecurityContext() != null ) {
-			podSecurityContext = new PodSecurityContextBuilder()
-					.withRunAsUser(this.properties.getPodSecurityContext().getRunAsUser())
-					.withFsGroup(this.properties.getPodSecurityContext().getFsGroup())
-					.withSupplementalGroups(this.properties.getPodSecurityContext().getSupplementalGroups())
-					.build();
+			podSecurityContext = buildPodSecurityContext(this.properties);
 		}
 		return podSecurityContext;
+	}
+
+	private PodSecurityContext buildPodSecurityContext(KubernetesDeployerProperties deployerProperties) {
+		PodSecurityContextBuilder podSecurityContextBuilder = new PodSecurityContextBuilder()
+				.withRunAsUser(deployerProperties.getPodSecurityContext().getRunAsUser())
+				.withFsGroup(deployerProperties.getPodSecurityContext().getFsGroup())
+				.withSupplementalGroups(deployerProperties.getPodSecurityContext().getSupplementalGroups());
+		if (deployerProperties.getPodSecurityContext().getSeccompProfile() != null) {
+			podSecurityContextBuilder.withNewSeccompProfile(
+					deployerProperties.getPodSecurityContext().getSeccompProfile().getLocalhostProfile(),
+					deployerProperties.getPodSecurityContext().getSeccompProfile().getType());
+		}
+		return podSecurityContextBuilder.build();
 	}
 
 	Affinity getAffinityRules(Map<String, String> kubernetesDeployerProperties) {

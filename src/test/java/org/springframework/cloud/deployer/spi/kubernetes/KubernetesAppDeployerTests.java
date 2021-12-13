@@ -40,6 +40,7 @@ import io.fabric8.kubernetes.api.model.PodAntiAffinity;
 import io.fabric8.kubernetes.api.model.PodSecurityContext;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.PreferredSchedulingTerm;
+import io.fabric8.kubernetes.api.model.SeccompProfile;
 import io.fabric8.kubernetes.api.model.SecretKeySelector;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.api.model.VolumeBuilder;
@@ -68,6 +69,7 @@ import static org.assertj.core.api.Assertions.entry;
  * @author Ilayaperumal Gopinathan
  * @author Chris Schaefer
  * @author Enrique Medina Montenegro
+ * @author Chris Bono
  */
 public class KubernetesAppDeployerTests {
 
@@ -825,7 +827,7 @@ public class KubernetesAppDeployerTests {
 	@Test
 	public void testPodSecurityContextProperty() {
 		Map<String, String> props = new HashMap<>();
-		props.put("spring.cloud.deployer.kubernetes.podSecurityContext", "{runAsUser: 65534, fsGroup: 65534, supplementalGroups: [65534, 65535]}");
+		props.put("spring.cloud.deployer.kubernetes.podSecurityContext", "{runAsUser: 65534, fsGroup: 65534, supplementalGroups: [65534, 65535], seccompProfile: { type: RuntimeDefault }}");
 
 		AppDefinition definition = new AppDefinition("app-test", null);
 		AppDeploymentRequest appDeploymentRequest = new AppDeploymentRequest(definition, getResource(), props);
@@ -840,6 +842,7 @@ public class KubernetesAppDeployerTests {
 		assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isEqualTo(65534);
 		assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isEqualTo(65534);
 		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental groups").isEqualTo(Arrays.asList(new Long[]{65534L, 65535L}));
+		assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile").isEqualTo(new SeccompProfile(null, "RuntimeDefault"));
 	}
 
 	@Test
@@ -951,10 +954,15 @@ public class KubernetesAppDeployerTests {
 
 		KubernetesDeployerProperties kubernetesDeployerProperties = new KubernetesDeployerProperties();
 
+		KubernetesDeployerProperties.SeccompProfile seccompProfile = new KubernetesDeployerProperties.SeccompProfile();
+		seccompProfile.setType("Localhost");
+		seccompProfile.setLocalhostProfile("profile.json");
+
 		KubernetesDeployerProperties.PodSecurityContext securityContext = new KubernetesDeployerProperties.PodSecurityContext();
 		securityContext.setFsGroup(65534L);
 		securityContext.setRunAsUser(65534L);
 		securityContext.setSupplementalGroups(new Long[]{65534L});
+		securityContext.setSeccompProfile(seccompProfile);
 
 		kubernetesDeployerProperties.setPodSecurityContext(securityContext);
 
@@ -968,6 +976,7 @@ public class KubernetesAppDeployerTests {
 		assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isEqualTo(65534);
 		assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isEqualTo(65534);
 		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental groups").isEqualTo(Arrays.asList(new Long[]{65534L}));
+		assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile").isEqualTo(new SeccompProfile("profile.json", "Localhost"));
 	}
 
 	@Test
@@ -1104,7 +1113,8 @@ public class KubernetesAppDeployerTests {
 
 		assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isEqualTo(65534);
 		assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isEqualTo(65534);
-        assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental groups").isEqualTo(Arrays.asList(new Long[]{65534L, 65535L}));
+		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental groups").isEqualTo(Arrays.asList(new Long[]{65534L, 65535L}));
+		assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile").isEqualTo(new SeccompProfile("my-profiles/profile-allow.json", "Localhost"));
 	}
 
 	@Test
@@ -1167,6 +1177,7 @@ public class KubernetesAppDeployerTests {
 		assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isEqualTo(65534);
 		assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isNull();
 		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental group").isEmpty();
+		assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile").isNull();
 	}
 
 	@Test
@@ -1186,7 +1197,8 @@ public class KubernetesAppDeployerTests {
 
 		assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isNull();
 		assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isEqualTo(65534);
-        assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental group").isEmpty();
+		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental group").isEmpty();
+		assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile").isNull();
 	}
 
     @Test
@@ -1207,22 +1219,50 @@ public class KubernetesAppDeployerTests {
         assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isNull();
         assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isNull();
         assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental group").isEqualTo(Arrays.asList(new Long[]{65534L, 65535L }));
+        assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile").isNull();
     }
+
+	@Test
+	public void testPodSecurityContextSeccompProfileOnly() {
+		Map<String, String> props = new HashMap<>();
+		props.put("spring.cloud.deployer.kubernetes.podSecurityContext", "{seccompProfile: { type: RuntimeDefault}}");
+
+		AppDefinition definition = new AppDefinition("app-test", null);
+		AppDeploymentRequest appDeploymentRequest = new AppDeploymentRequest(definition, getResource(), props);
+
+		deployer = new KubernetesAppDeployer(new KubernetesDeployerProperties(), null);
+		PodSpec podSpec = deployer.createPodSpec(appDeploymentRequest);
+
+		PodSecurityContext podSecurityContext = podSpec.getSecurityContext();
+
+		assertThat(podSecurityContext).as("Pod security context should not be null").isNotNull();
+
+		assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isNull();
+		assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isNull();
+		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental group").isEmpty();
+		assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile")
+				.isEqualTo(new SeccompProfile(null, "RuntimeDefault"));
+	}
 
 	@Test
 	public void testPodSecurityContextPropertyOverrideGlobal() {
 		Map<String, String> props = new HashMap<>();
-		props.put("spring.cloud.deployer.kubernetes.podSecurityContext", "{runAsUser: 65534, fsGroup: 65534, supplementalGroups: [65534,65535]}");
+		props.put("spring.cloud.deployer.kubernetes.podSecurityContext", "{runAsUser: 65534, fsGroup: 65534, supplementalGroups: [65534,65535], seccompProfile: { type: Localhost, localhostProfile: sec/custom-allow.json } }");
 
 		AppDefinition definition = new AppDefinition("app-test", null);
 		AppDeploymentRequest appDeploymentRequest = new AppDeploymentRequest(definition, getResource(), props);
 
 		KubernetesDeployerProperties kubernetesDeployerProperties = new KubernetesDeployerProperties();
 
+		KubernetesDeployerProperties.SeccompProfile seccompProfile = new KubernetesDeployerProperties.SeccompProfile();
+		seccompProfile.setType("Localhost");
+		seccompProfile.setLocalhostProfile("sec/default-allow.json");
+
 		KubernetesDeployerProperties.PodSecurityContext securityContext = new KubernetesDeployerProperties.PodSecurityContext();
 		securityContext.setFsGroup(1000L);
 		securityContext.setRunAsUser(1000L);
-		securityContext.setSupplementalGroups(new Long[]{1000L});
+		securityContext.setSupplementalGroups(new Long[] {1000L});
+		securityContext.setSeccompProfile(seccompProfile);
 
 		kubernetesDeployerProperties.setPodSecurityContext(securityContext);
 
@@ -1235,7 +1275,10 @@ public class KubernetesAppDeployerTests {
 
 		assertThat(podSecurityContext.getRunAsUser()).as("Unexpected run as user").isEqualTo(65534);
 		assertThat(podSecurityContext.getFsGroup()).as("Unexpected fs group").isEqualTo(65534);
-		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental groups").isEqualTo(Arrays.asList(new Long[]{65534L, 65535L}));
+		assertThat(podSecurityContext.getSupplementalGroups()).as("Unexpected supplemental groups")
+				.isEqualTo(Arrays.asList(new Long[] {65534L, 65535L}));
+		assertThat(podSecurityContext.getSeccompProfile()).as("Unexpected seccompProfile")
+				.isEqualTo(new SeccompProfile("sec/custom-allow.json", "Localhost"));
 	}
 
 	@Test

@@ -38,6 +38,7 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
  * @author Chris Schaefer
  * @author David Turanski
  * @author Enrique Medina Montenegro
+ * @author Chris Bono
  */
 @ConfigurationProperties(prefix = KubernetesDeployerProperties.KUBERNETES_DEPLOYER_PROPERTIES_PREFIX)
 public class KubernetesDeployerProperties {
@@ -342,6 +343,8 @@ public class KubernetesDeployerProperties {
 
 		private Long[] supplementalGroups;
 
+		private SeccompProfile seccompProfile;
+
 		public void setRunAsUser(Long runAsUser) {
 			this.runAsUser = runAsUser;
 		}
@@ -364,6 +367,46 @@ public class KubernetesDeployerProperties {
 
 		public Long[] getSupplementalGroups(){
 			return supplementalGroups;
+		}
+
+		public SeccompProfile getSeccompProfile() {
+			return seccompProfile;
+		}
+
+		public void setSeccompProfile(SeccompProfile seccompProfile) {
+			this.seccompProfile = seccompProfile;
+		}
+	}
+
+	/**
+	 * Defines a pod seccomp profile settings.
+	 */
+	public static class SeccompProfile {
+
+		/**
+		 * Type of seccomp profile.
+		 */
+		private String type;
+
+		/**
+		 * Path of the pre-configured profile on the node, relative to the kubelet's configured Seccomp profile location, only valid when type is "Localhost".
+		 */
+		private String localhostProfile;
+
+		public String getType() {
+			return type;
+		}
+
+		public void setType(String type) {
+			this.type = type;
+		}
+
+		public String getLocalhostProfile() {
+			return localhostProfile;
+		}
+
+		public void setLocalhostProfile(String localhostProfile) {
+			this.localhostProfile = localhostProfile;
 		}
 	}
 
