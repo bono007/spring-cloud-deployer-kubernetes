@@ -337,12 +337,24 @@ public class KubernetesDeployerProperties {
 	}
 
 	public static class PodSecurityContext {
+		/**
+		 * The numeric user ID to run pod container processes under
+		 */
 		private Long runAsUser;
 
+		/**
+		 * The numeric group ID for the volumes of the pod
+		 */
 		private Long fsGroup;
 
+		/**
+		 * The numeric group IDs applied to the pod container processes, in addition to the container's primary group ID
+		 */
 		private Long[] supplementalGroups;
 
+		/**
+		 * The seccomp options to use for the pod containers
+		 */
 		private SeccompProfile seccompProfile;
 
 		public void setRunAsUser(Long runAsUser) {
@@ -407,6 +419,34 @@ public class KubernetesDeployerProperties {
 
 		public void setLocalhostProfile(String localhostProfile) {
 			this.localhostProfile = localhostProfile;
+		}
+	}
+
+	public static class ContainerSecurityContext {
+		/**
+		 * Whether a process can gain more privileges than its parent process
+		 */
+		private boolean allowPrivilegeEscalation;
+
+		/**
+		 * Mounts the container's root filesystem as read-only
+		 */
+		private boolean readOnlyRootFilesystem;
+
+		public void setAllowPrivilegeEscalation(boolean allowPrivilegeEscalation) {
+			this.allowPrivilegeEscalation = allowPrivilegeEscalation;
+		}
+
+		public boolean isAllowPrivilegeEscalation() {
+			return allowPrivilegeEscalation;
+		}
+
+		public void setReadOnlyRootFilesystem(boolean readOnlyRootFilesystem) {
+			this.readOnlyRootFilesystem = readOnlyRootFilesystem;
+		}
+
+		public boolean isReadOnlyRootFilesystem() {
+			return readOnlyRootFilesystem;
 		}
 	}
 
@@ -865,6 +905,11 @@ public class KubernetesDeployerProperties {
 	 * The security context to apply to created pod's.
 	 */
 	private PodSecurityContext podSecurityContext;
+
+	/**
+	 * The security context to apply to created pod's main container.
+	 */
+	private ContainerSecurityContext containerSecurityContext;
 
 	/**
 	 * The node affinity rules to apply.
@@ -1489,6 +1534,14 @@ public class KubernetesDeployerProperties {
 
 	public PodSecurityContext getPodSecurityContext() {
 		return podSecurityContext;
+	}
+
+	public void setContainerSecurityContext(ContainerSecurityContext containerSecurityContext) {
+		this.containerSecurityContext = containerSecurityContext;
+	}
+
+	public ContainerSecurityContext getContainerSecurityContext() {
+		return containerSecurityContext;
 	}
 
 	public NodeAffinity getNodeAffinity() {
