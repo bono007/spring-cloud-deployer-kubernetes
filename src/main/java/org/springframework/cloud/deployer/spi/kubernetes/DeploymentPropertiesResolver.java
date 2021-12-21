@@ -41,6 +41,8 @@ import io.fabric8.kubernetes.api.model.PodSecurityContextBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.SecretEnvSource;
 import io.fabric8.kubernetes.api.model.SecretKeySelector;
+import io.fabric8.kubernetes.api.model.SecurityContext;
+import io.fabric8.kubernetes.api.model.SecurityContextBuilder;
 import io.fabric8.kubernetes.api.model.Toleration;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
@@ -432,6 +434,28 @@ class DeploymentPropertiesResolver {
 					deployerProperties.getPodSecurityContext().getSeccompProfile().getType());
 		}
 		return podSecurityContextBuilder.build();
+	}
+
+	SecurityContext getContainerSecurityContext(Map<String, String> kubernetesDeployerProperties) {
+		SecurityContext securityContext = null;
+
+		KubernetesDeployerProperties deployerProperties = bindProperties(kubernetesDeployerProperties,
+				this.propertyPrefix + ".containerSecurityContext", "containerSecurityContext");
+
+		if (deployerProperties.getContainerSecurityContext() != null) {
+			securityContext = buildContainerSecurityContext(deployerProperties);
+
+		} else if (this.properties.getContainerSecurityContext() != null ) {
+			securityContext = buildContainerSecurityContext(this.properties);
+		}
+		return securityContext;
+	}
+
+	private SecurityContext buildContainerSecurityContext(KubernetesDeployerProperties deployerProperties) {
+		return new SecurityContextBuilder()
+				.withAllowPrivilegeEscalation(deployerProperties.getContainerSecurityContext().isAllowPrivilegeEscalation())
+				.withReadOnlyRootFilesystem(deployerProperties.getContainerSecurityContext().isReadOnlyRootFilesystem())
+				.build();
 	}
 
 	Affinity getAffinityRules(Map<String, String> kubernetesDeployerProperties) {
